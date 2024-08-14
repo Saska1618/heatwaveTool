@@ -30,11 +30,14 @@ class XRDS_handler:
         
         return self.xrds[variable].sel(time=given_time)
     
-    def get_ds_at_spec_latlon(self, variable, lat, lon):
+    def get_ds_at_spec_latlon(self, variable, lat, lon, start, end):
         if variable is None or lat is None or lon is None:
             raise ValueError
         
-        return self.xrds[variable].sel(latitude=lat, longitude=lon, method='nearest')
+        nlat = self.xrds[variable].sel(latitude=lat, longitude=lon, method='nearest').latitude.item()
+        nlon = self.xrds[variable].sel(latitude=lat, longitude=lon, method='nearest').longitude.item()
+        
+        return self.xrds[variable].sel(latitude=nlat, longitude=nlon, time=slice(start, end))
     
     def get_minmax_latitude(self, variable='tg'):
         # if variable is None:
