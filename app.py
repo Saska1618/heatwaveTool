@@ -17,6 +17,8 @@ ui.input_dark_mode()
 
 ds = XRDS_handler("./data/tg_ens_mean_0.1deg_reg_2011-2023_v29.0e.nc")
 
+
+
 with ui.navset_card_pill(id="tab"):
 
     ### MAP FUNCTIONAL PANEL ###
@@ -80,7 +82,11 @@ with ui.navset_card_pill(id="tab"):
 
                     @render.ui
                     def input_date_range():
-                        return ui.input_date_range("daterange_graph", "Date range", start=datetime.fromtimestamp(int(ds.xrds[input.radio_variables_graph()]['time'].min().item() / 1e9)).strftime("%Y-%m-%d"), end=datetime.fromtimestamp(int(ds.xrds[input.radio_variables_graph()]['time'].max().item() / 1e9)).strftime("%Y-%m-%d"))
+
+                        start_date = datetime.fromtimestamp(int(ds.xrds[input.radio_variables_graph()]['time'].min().item() / 1e9)).strftime("%Y-%m-%d")
+                        end_date = datetime.fromtimestamp(int(ds.xrds[input.radio_variables_graph()]['time'].max().item() / 1e9)).strftime("%Y-%m-%d")
+
+                        return ui.input_date_range("daterange_graph", "Date range", start=start_date, end=end_date)
 
                 with ui.card():
                     "Coordinates"
@@ -107,7 +113,3 @@ with ui.navset_card_pill(id="tab"):
 
                     return ui.HTML(fig.to_html(full_html=False))
                 
-
-
-
-
