@@ -4,10 +4,21 @@ from datetime import datetime
 from xrds_handler import XRDS_handler
 import plotly.express as px
 import pandas as pd
+import numpy as np
+import rasterio
+from rasterio.enums import Resampling
+from rasterio.transform import from_origin
+from rasterio.io import MemoryFile
+import tempfile
+import os
+
+import base64
+
+import xarray as xr
 
 from shinywidgets import render_widget
 
-from ipyleaflet import Map, TileLayer
+from ipyleaflet import Map, TileLayer, ImageOverlay
 from localtileserver import TileClient, get_leaflet_tile_layer
 import rioxarray
 
@@ -59,27 +70,101 @@ with ui.navset_card_pill(id="tab"):
                 #     plt.title(f"{input.radio_variables_map()} data on {input.date_map()}")
                 #     return plt.gcf()
                 
+                # @render_widget  
+                # def map():
+                #     date_str_value = input.date_map().strftime('%Y-%m-%d')
+                #     print(f"DDDAAATTEEE VALUE: {date_str_value}")
+                #     data_array = ds.get_latlon_matrix_at_given_time(input.radio_variables_map(), date_str_value)
+
+
+                #     if data_array.rio.crs is None:
+                #         data_array = data_array.rio.write_crs("EPSG:4326", inplace=True)
+
+                #     data_array.rio.set_spatial_dims(x_dim="longitude", y_dim="latitude", inplace=True)
+
+                #     cmap = plt.get_cmap("coolwarm")
+                #     norm = plt.Normalize(vmin=data_array.min(), vmax=data_array.max())
+
+                #     rgba_array =cmap(norm(data_array))
+                #     rgba_array = (rgba_array * 255).astype(np.uint8)
+
+
+                #     rgba_array[..., 3] = 128
+
+                #     nan_mask = np.isnan(data_array)
+                #     rgba_array[nan_mask] = [0,0,0,0]
+
+                #     with rasterio.open(f"colored_temperature_map_{date_str_value}.tif", "w", driver="GTiff",
+                #                     height=rgba_array.shape[0], width=rgba_array.shape[1],
+                #                     count=4, dtype='uint8', crs='EPSG:4326',
+                #                     transform=data_array.rio.transform()) as dst:
+                #         dst.write(rgba_array[..., 0], 1)  # Red
+                #         dst.write(rgba_array[..., 1], 2)  # Green
+                #         dst.write(rgba_array[..., 2], 3)  # Blue
+                #         dst.write(rgba_array[..., 3], 4)  # Alpha
+
+                #     client = TileClient(f"colored_temperature_map_{date_str_value}.tif")
+
+                #     tile_layer = get_leaflet_tile_layer(client)
+
+                #     center = [data_array.latitude.mean().item(), data_array.longitude.mean().item()]
+                #     m = Map(center=center, zoom=3.5)
+
+                #     m.add_layer(tile_layer)
+
+                #     return m
+        
                 @render_widget  
                 def map():
-                    # date_str_value = input.date_map().strftime('%Y-%m-%d')
-                    # data_array = ds.get_latlon_matrix_at_given_time(input.radio_variables_map(), date_str_value)
+                    date_str_value = input.date_map().strftime('%Y-%m-%d')
+                    print(f"DDDAAATTEEE VALUE: {date_str_value}")
+                    data_array = ds.get_latlon_matrix_at_given_time(input.radio_variables_map(), date_str_value)
 
-                    # data_array.rio.set_spatial_dims(x_dim="longitude", y_dim="latitude", inplace=True)
+                    if data_array.rio.crs is None:
+                        data_array = data_array.rio.write_crs("EPSG:4326", inplace=True)
 
-                    # data_array.rio.to_raster("temperature_map.tif")
+                    data_array.rio.set_spatial_dims(x_dim="longitude", y_dim="latitude", inplace=True)
 
-                    # client = TileClient("temperature_map.tif")
+                    cmap = plt.get_cmap("coolwarm")
+                    norm = plt.Normalize(vmin=data_array.min(), vmax=data_array.max())
 
-                    # tile_layer = get_leaflet_tile_layer(client)
+                    rgba_array = cmap(norm(data_array))
+                    rgba_array = (rgba_array * 255).astype(np.uint8)
 
-                    # center = [data_array.latitude.mean().item(), data_array.longitude.mean().item()]
-                    # m = Map(center=center, zoom=5)
+                    # Set desired opacity level
+                    alpha_value = 128
+                    rgba_array[..., 3] = alpha_value
 
-                    # m.add_layer(tile_layer)
+                    # Handle NaNs by setting alpha to 0 (fully transparent)
+                    nan_mask = np.isnan(data_array)
+                    rgba_array[nan_mask] = [0, 0, 0, 0]
 
-                    # return m
-                    return Map(center=(50.6252978589571, 0.34580993652344), zoom=3)
-        
+                    with tempfile.NamedTemporaryFile(suffix='.tif', delete=False) as temp_file:
+                        temp_file_name = temp_file.name
+                        with rasterio.open(
+                            temp_file_name, 'w', driver='GTiff',
+                            height=rgba_array.shape[0], width=rgba_array.shape[1],
+                            count=4, dtype='uint8', crs='EPSG:4326',
+                            transform=data_array.rio.transform()
+                        ) as dst:
+                            dst.write(rgba_array[..., 0], 1)  # Red
+                            dst.write(rgba_array[..., 1], 2)  # Green
+                            dst.write(rgba_array[..., 2], 3)  # Blue
+                            dst.write(rgba_array[..., 3], 4)  # Alpha
+
+                    # Create TileClient with the temporary file path
+                    client = TileClient(temp_file_name)
+                    tile_layer = get_leaflet_tile_layer(client)
+
+                    center = [data_array.latitude.mean().item(), data_array.longitude.mean().item()]
+                    m = Map(center=center, zoom=3.5)
+                    m.add_layer(tile_layer)
+
+                    print(f"{temp_file_name}")
+                    # Clean up the temporary file
+                    os.remove(temp_file_name)
+
+                    return m
 
     ### OTHER TAB ###
     with ui.nav_panel("Climate data at specific location"):
