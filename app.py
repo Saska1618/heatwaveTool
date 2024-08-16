@@ -7,13 +7,17 @@ import pandas as pd
 
 from shinywidgets import render_widget
 
-from ipyleaflet import Map
+from ipyleaflet import Map, TileLayer
+from localtileserver import TileClient, get_leaflet_tile_layer
+import rioxarray
 
 import matplotlib.pyplot as plt
 
 ui.page_opts(fillable=True)
 
 ui.input_dark_mode()
+
+
 
 ds = XRDS_handler("./data/tg_ens_mean_0.1deg_reg_2011-2023_v29.0e.nc")
 
@@ -39,9 +43,6 @@ with ui.navset_card_pill(id="tab"):
                         {var:var for var in ds.get_variable_names()}
                     )
 
-                    # ui.input_slider("slider_map", "Select a date", datetime.strptime("2011-01-02", '%Y-%m-%d').date(), datetime.strptime("2024-01-01", '%Y-%m-%d').date(), datetime.strptime("2012-01-01", '%Y-%m-%d').date())
-
-
                 with ui.card():
 
                     ui.input_date("date_map", "Date", value='2012-01-01') 
@@ -50,13 +51,34 @@ with ui.navset_card_pill(id="tab"):
 
             with ui.card():
 
-                @render.plot
-                def plvalue():
-                    date_str_value = input.date_map().strftime('%Y-%m-%d')
-                    gs = ds.get_latlon_matrix_at_given_time(input.radio_variables_map(), date_str_value)
-                    gs.plot()
-                    plt.title(f"{input.radio_variables_map()} data on {input.date_map()}")
-                    return plt.gcf()
+                # @render.plot
+                # def plvalue():
+                #     date_str_value = input.date_map().strftime('%Y-%m-%d')
+                #     gs = ds.get_latlon_matrix_at_given_time(input.radio_variables_map(), date_str_value)
+                #     gs.plot()
+                #     plt.title(f"{input.radio_variables_map()} data on {input.date_map()}")
+                #     return plt.gcf()
+                
+                @render_widget  
+                def map():
+                    # date_str_value = input.date_map().strftime('%Y-%m-%d')
+                    # data_array = ds.get_latlon_matrix_at_given_time(input.radio_variables_map(), date_str_value)
+
+                    # data_array.rio.set_spatial_dims(x_dim="longitude", y_dim="latitude", inplace=True)
+
+                    # data_array.rio.to_raster("temperature_map.tif")
+
+                    # client = TileClient("temperature_map.tif")
+
+                    # tile_layer = get_leaflet_tile_layer(client)
+
+                    # center = [data_array.latitude.mean().item(), data_array.longitude.mean().item()]
+                    # m = Map(center=center, zoom=5)
+
+                    # m.add_layer(tile_layer)
+
+                    # return m
+                    return Map(center=(50.6252978589571, 0.34580993652344), zoom=3)
         
 
     ### OTHER TAB ###
@@ -102,7 +124,7 @@ with ui.navset_card_pill(id="tab"):
 
             with ui.card():
                 
-                @render.ui
+                @render_widget
                 def valChangeOnTime():
                     gt = ds.get_ds_at_spec_latlon(input.radio_variables_graph(), lat=input.inp_lat_graph(), lon=input.inp_lon_graph(), start=input.daterange_graph()[0], end=input.daterange_graph()[1])
                     df = gt.to_dataframe(name='value').drop(columns=['longitude', 'latitude'])
@@ -110,6 +132,5 @@ with ui.navset_card_pill(id="tab"):
                     df['value'] = pd.to_numeric(df['value'], downcast='float')
 
                     fig = px.scatter(df, x=df.index, y='value', title=f"{input.radio_variables_graph()} change over time at Lat: {input.inp_lat_graph()}, Lon: {input.inp_lon_graph()}", render_mode='webgl')
-
-                    return ui.HTML(fig.to_html(full_html=False))
+                    return fig
                 
