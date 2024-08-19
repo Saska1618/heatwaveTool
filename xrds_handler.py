@@ -13,12 +13,6 @@ class XRDS_handler:
         self.attributes = self.xrds.attrs
         self.variables = self.xrds.data_vars
 
-        self.min_lat = min(self.xrds['tg']['latitude']).values.item() ## TODO
-        self.max_lat = max(self.xrds['tg']['latitude']).values.item() ## TODO
-
-        self.min_lon = min(self.xrds['tg']['longitude']).values.item() ## TODO
-        self.max_lon = max(self.xrds['tg']['longitude']).values.item() ## TODO
-
     def get_attrs(self):
         return self.attributes
     
