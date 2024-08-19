@@ -6,19 +6,14 @@ import plotly.express as px
 import pandas as pd
 import numpy as np
 import rasterio
-# from rasterio.enums import Resampling
-from rasterio.transform import from_origin
-# from rasterio.io import MemoryFile
-import tempfile
+
+#from rasterio.transform import from_origin
+#import tempfile
 import os
-
-# import xarray as xr
-
 from shinywidgets import render_widget
 
-from ipyleaflet import Map#, TileLayer, ImageOverlay
+from ipyleaflet import Map
 from localtileserver import TileClient, get_leaflet_tile_layer
-# import rioxarray
 
 import matplotlib.pyplot as plt
 
@@ -26,11 +21,9 @@ ui.page_opts(fillable=True)
 
 ui.input_dark_mode()
 
-#ds = reactive.Value(XRDS_handler("./data/tg_ens_mean_0.1deg_reg_2011-2023_v29.0e.nc"))
-#ds = reactive.Value(None)
-
 @reactive.calc
 def get_ds():
+    print("vagyok")
     ds = req(input.fileChosen())
     return XRDS_handler('./data/' + ds[0]['name'])
 
@@ -83,7 +76,8 @@ with ui.navset_card_pill(id="tab"):
                     data_array.rio.set_spatial_dims(x_dim="longitude", y_dim="latitude", inplace=True)
 
                     cmap = plt.get_cmap("coolwarm")
-                    norm = plt.Normalize(vmin=data_array.min(), vmax=data_array.max())
+                    norm = plt.Normalize(vmin=data_array.min().item(), vmax=data_array.max().item())
+                    #norm = plt.Normalize(vmin=-22, vmax=39)
 
                     rgba_array =cmap(norm(data_array))
                     rgba_array = (rgba_array * 255).astype(np.uint8)
