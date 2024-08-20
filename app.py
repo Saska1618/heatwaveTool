@@ -5,7 +5,9 @@ from xrds_handler import XRDS_handler
 import plotly.express as px
 import pandas as pd
 import numpy as np
+import xarray as xr
 import rasterio
+import glob
 
 #from rasterio.transform import from_origin
 #import tempfile
@@ -23,13 +25,13 @@ ui.input_dark_mode()
 
 @reactive.calc
 def get_ds():
-    print("vagyok")
     ds = req(input.fileChosen())
+    [os.remove(file) for file in glob.glob("./tifs/*")]
     return XRDS_handler('./data/' + ds[0]['name'])
 
 with ui.navset_card_pill(id="tab"):
 
-    ### MAP FUNCTIONAL PANEL ###
+    ### UPLOAD A FILE TAB ###
 
     with ui.nav_panel("Upload a file"):
 
@@ -39,6 +41,7 @@ with ui.navset_card_pill(id="tab"):
 
             ui.input_file("fileChosen", "Browse a file", accept=[".nc"], multiple=False)
                     
+    ### MAP FUNCTIONAL PANEL ###
 
     with ui.nav_panel("Climate data on Map"):
         with ui.layout_columns(col_widths=(4, 8)):
@@ -54,9 +57,18 @@ with ui.navset_card_pill(id="tab"):
                                 "Variables:",
                                 {var:var for var in get_ds().get_variable_names()}
                             )
+                    
+                with ui.card():
+
+                    @render.ui
+                    def op_slider():
+                        return ui.input_slider("opacity_slider", "Opacity", 0, 1, 0.85)
 
                 with ui.card():
-                    ui.input_date("date_map", "Date", value='2012-01-01') 
+
+                    @render.ui
+                    def initial_date_map():
+                        return ui.input_date("date_map", "Date", value='2012-01-01')#datetime.fromtimestamp(int(get_ds().xrds[input.radio_variables_graph()]['time'].mean().item() / 1e9)).strftime("%Y-%m-%d")) 
 
                 ### MAP OUTPUT ###
 
@@ -67,29 +79,30 @@ with ui.navset_card_pill(id="tab"):
                 def map():
 
                     date_str_value = input.date_map().strftime('%Y-%m-%d')
-                    data_array = get_ds().get_latlon_matrix_at_given_time(input.radio_variables_map(), date_str_value)
 
+                    data_array = get_ds().get_latlon_matrix_at_given_time(input.radio_variables_map(), date_str_value)
 
                     if data_array.rio.crs is None:
                         data_array = data_array.rio.write_crs("EPSG:4326", inplace=True)
 
-                    data_array.rio.set_spatial_dims(x_dim="longitude", y_dim="latitude", inplace=True)
 
+                    #data_array.rio.set_spatial_dims(x_dim="longitude", y_dim="latitude", inplace=True)
+
+                    
                     cmap = plt.get_cmap("coolwarm")
-                    norm = plt.Normalize(vmin=data_array.min().item(), vmax=data_array.max().item())
-                    #norm = plt.Normalize(vmin=-22, vmax=39)
+                    #norm = plt.Normalize(vmin=data_array.min().item(), vmax=data_array.max().item())
+                    norm = plt.Normalize(vmin=-25, vmax=39)
 
-                    rgba_array =cmap(norm(data_array))
+                    rgba_array = cmap(norm(data_array))
                     rgba_array = (rgba_array * 255).astype(np.uint8)
 
+                    #nan_mask = np.isnan(data_array)
+                    #rgba_array[nan_mask] = [0,0,0,0]
 
-                    rgba_array[..., 3] = 128
+                    #rgba_array[..., 3] = 128
 
-                    nan_mask = np.isnan(data_array)
-                    rgba_array[nan_mask] = [0,0,0,0]
-
-                    if not os.path.exists(f"./tifs/colored_temperature_map_{date_str_value}.tif"):
-                        with rasterio.open(f"./tifs/colored_temperature_map_{date_str_value}.tif", "w", driver="GTiff",
+                    if not os.path.exists(f"./tifs/colored_temperature_map_{input.radio_variables_map()}_{date_str_value}.tif"):
+                        with rasterio.open(f"./tifs/colored_temperature_map_{input.radio_variables_map()}_{date_str_value}.tif", "w", driver="GTiff",
                                         height=rgba_array.shape[0], width=rgba_array.shape[1],
                                         count=4, dtype='uint8', crs='EPSG:4326',
                                         transform=data_array.rio.transform()) as dst:
@@ -97,10 +110,9 @@ with ui.navset_card_pill(id="tab"):
                             dst.write(rgba_array[..., 1], 2)  # Green
                             dst.write(rgba_array[..., 2], 3)  # Blue
                             dst.write(rgba_array[..., 3], 4)  # Alpha
+                    client = TileClient(f"./tifs/colored_temperature_map_{input.radio_variables_map()}_{date_str_value}.tif")
 
-                    client = TileClient(f"./tifs/colored_temperature_map_{date_str_value}.tif")
-
-                    tile_layer = get_leaflet_tile_layer(client)
+                    tile_layer = get_leaflet_tile_layer(client, opacity=input.opacity_slider())
 
                     center = [data_array.latitude.mean().item(), data_array.longitude.mean().item()]
                     m = Map(center=center, zoom=3.5)
