@@ -9,8 +9,6 @@ import xarray as xr
 import rasterio
 import glob
 
-#from rasterio.transform import from_origin
-#import tempfile
 import os
 from shinywidgets import render_widget
 
@@ -75,7 +73,6 @@ with ui.navset_card_pill(id="tab"):
             with ui.card():
                 
                 @render_widget  
-                # @reactive.event(input.fileChosen_map)
                 def map():
 
                     date_str_value = input.date_map().strftime('%Y-%m-%d')
@@ -84,10 +81,6 @@ with ui.navset_card_pill(id="tab"):
 
                     if data_array.rio.crs is None:
                         data_array = data_array.rio.write_crs("EPSG:4326", inplace=True)
-
-
-                    #data_array.rio.set_spatial_dims(x_dim="longitude", y_dim="latitude", inplace=True)
-
                     
                     cmap = plt.get_cmap("coolwarm")
                     #norm = plt.Normalize(vmin=data_array.min().item(), vmax=data_array.max().item())
@@ -95,11 +88,6 @@ with ui.navset_card_pill(id="tab"):
 
                     rgba_array = cmap(norm(data_array))
                     rgba_array = (rgba_array * 255).astype(np.uint8)
-
-                    #nan_mask = np.isnan(data_array)
-                    #rgba_array[nan_mask] = [0,0,0,0]
-
-                    #rgba_array[..., 3] = 128
 
                     if not os.path.exists(f"./tifs/colored_temperature_map_{input.radio_variables_map()}_{date_str_value}.tif"):
                         with rasterio.open(f"./tifs/colored_temperature_map_{input.radio_variables_map()}_{date_str_value}.tif", "w", driver="GTiff",
@@ -110,14 +98,18 @@ with ui.navset_card_pill(id="tab"):
                             dst.write(rgba_array[..., 1], 2)  # Green
                             dst.write(rgba_array[..., 2], 3)  # Blue
                             dst.write(rgba_array[..., 3], 4)  # Alpha
+
+
                     client = TileClient(f"./tifs/colored_temperature_map_{input.radio_variables_map()}_{date_str_value}.tif")
+                    #cli = TileClient()
 
                     tile_layer = get_leaflet_tile_layer(client, opacity=input.opacity_slider())
 
                     center = [data_array.latitude.mean().item(), data_array.longitude.mean().item()]
                     m = Map(center=center, zoom=3.5)
 
-                    m.add_layer(tile_layer)
+                    #m.add_layer(tile_layer)
+                    m.add(dst)
 
                     return m
 
